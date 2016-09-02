@@ -1,6 +1,6 @@
 import graphene
-import spotifyapi
-import ytapi
+import spotify_api
+import youtube_api
 
 
 class Track(graphene.ObjectType):
@@ -12,7 +12,7 @@ class Track(graphene.ObjectType):
 
     def resolve_youtube_id(self, args, info):
         query = query_builder(self.artists, self.name)
-        return ytapi.get_track_id(query)
+        return youtube_api.get_track_id(query)
 
 
 class Image(graphene.ObjectType):
@@ -28,11 +28,11 @@ class Artist(graphene.ObjectType):
     tracks = graphene.List(Track)
 
     def resolve_images(self, args, info):
-        images_json = spotifyapi.get_artist(self.spotify_id)['images']
+        images_json = spotify_api.get_artist(self.spotify_id)['images']
         return list(map(process_image, images_json))
 
     def resolve_tracks(self, args, info):
-        tracks_json = spotifyapi.get_artist_top_tracks(self.spotify_id)
+        tracks_json = spotify_api.get_artist_top_tracks(self.spotify_id)
         return list(map(process_track, tracks_json))
 
 
@@ -43,19 +43,19 @@ class Query(graphene.ObjectType):
     artist = graphene.Field(Artist, id=graphene.String())
 
     def resolve_search_tracks(self, args, info):
-        tracks_json = spotifyapi.search_tracks(args['query'])
+        tracks_json = spotify_api.search_tracks(args['query'])
         return list(map(process_track, tracks_json))
 
     def resolve_search_artists(self, args, info):
-        artists_json = spotifyapi.search_artists(args['query'])
+        artists_json = spotify_api.search_artists(args['query'])
         return list(map(process_artist, artists_json))
 
     def resolve_track(self, args, info):
-        track_json = spotifyapi.get_track(args['id'])
+        track_json = spotify_api.get_track(args['id'])
         return process_track(track_json)
 
     def resolve_artist(self, args, info):
-        artist_json = spotifyapi.get_artist(args['id'])
+        artist_json = spotify_api.get_artist(args['id'])
         return process_artist(artist_json)
 
 

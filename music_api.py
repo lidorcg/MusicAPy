@@ -1,6 +1,6 @@
 from flask import Flask
 from flask_graphql import GraphQLView
-from flask_cors import CORS, cross_origin
+from flask_cors import CORS
 from schema import schema
 
 app = Flask(__name__)

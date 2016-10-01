@@ -7,10 +7,10 @@ class Track(graphene.ObjectType):
     spotify_id = graphene.String()
     name = graphene.String()
     duration = graphene.String()
-    artists = graphene.List('Artist')
+    artists = graphene.List(lambda: Artist)
     youtube_id = graphene.String()
 
-    def resolve_youtube_id(self, args, info):
+    def resolve_youtube_id(self, args, context, info):
         query = youtube_query_builder(self.artists, self.name)
         return youtube_api.get_track_id(query)
 
@@ -24,14 +24,14 @@ class Image(graphene.ObjectType):
 class Artist(graphene.ObjectType):
     spotify_id = graphene.String()
     name = graphene.String()
-    images = graphene.List(Image)
-    tracks = graphene.List(Track)
+    images = graphene.List(lambda: Image)
+    tracks = graphene.List(lambda: Track)
 
-    def resolve_images(self, args, info):
+    def resolve_images(self, args, context, info):
         images_json = spotify_api.get_artist(self.spotify_id)['images']
         return list(map(process_image, images_json))
 
-    def resolve_tracks(self, args, info):
+    def resolve_tracks(self, args, context, info):
         tracks_json = spotify_api.get_artist_top_tracks(self.spotify_id)
         return list(map(process_track, tracks_json))
 
@@ -42,24 +42,26 @@ class Query(graphene.ObjectType):
     track = graphene.Field(Track, id=graphene.String())
     artist = graphene.Field(Artist, id=graphene.String())
 
-    def resolve_search_tracks(self, args, info):
+    def resolve_search_tracks(self, args, context, info):
         tracks_json = spotify_api.search_tracks(args['query'])
         return list(map(process_track, tracks_json))
 
-    def resolve_search_artists(self, args, info):
+    def resolve_search_artists(self, args, context, info):
         artists_json = spotify_api.search_artists(args['query'])
         return list(map(process_artist, artists_json))
 
-    def resolve_track(self, args, info):
+    def resolve_track(self, args, context, info):
         track_json = spotify_api.get_track(args['id'])
         return process_track(track_json)
 
-    def resolve_artist(self, args, info):
+    def resolve_artist(self, args, context, info):
         artist_json = spotify_api.get_artist(args['id'])
         return process_artist(artist_json)
 
 
-schema = graphene.Schema(query=Query)
+schema = graphene.Schema(
+    query=Query
+)
 
 
 # utility functions

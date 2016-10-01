@@ -11,7 +11,7 @@ class Track(graphene.ObjectType):
     youtube_id = graphene.String()
 
     def resolve_youtube_id(self, args, info):
-        query = query_builder(self.artists, self.name)
+        query = youtube_query_builder(self.artists, self.name)
         return youtube_api.get_track_id(query)
 
 
@@ -63,7 +63,7 @@ schema = graphene.Schema(query=Query)
 
 
 # utility functions
-def query_builder(artists, track_name):
+def youtube_query_builder(artists, track_name):
     artists_names = ", ".join(map(lambda a: a.name, artists))
     return '{} {} Lyrics'.format(artists_names, track_name)
 

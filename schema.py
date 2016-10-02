@@ -1,9 +1,8 @@
 import graphene
 from graphene_sqlalchemy import SQLAlchemyObjectType
+
 from models import MyList as MyListModel, MyTrack as MyTrackModel
-import db_mutator
-import spotify_api
-import youtube_api
+from providers import spotify_provider, db_provider, youtube_provider
 
 
 ##########
@@ -18,8 +17,7 @@ class Track(graphene.ObjectType):
     youtube_id = graphene.String()
 
     def resolve_youtube_id(self, args, context, info):
-        query = youtube_query_builder(self.artists, self.name)
-        return youtube_api.get_track_id(query)
+        return youtube_provider.get_track_id(self.artists, self.name)
 
 
 class Artist(graphene.ObjectType):
@@ -29,12 +27,10 @@ class Artist(graphene.ObjectType):
     spotify_id = graphene.String()
 
     def resolve_images(self, args, context, info):
-        images_json = spotify_api.get_artist(self.spotify_id)['images']
-        return list(map(process_image, images_json))
+        return spotify_provider.get_artist_images(self.spotify_id)
 
     def resolve_tracks(self, args, context, info):
-        tracks_json = spotify_api.get_artist_top_tracks(self.spotify_id)
-        return list(map(process_track, tracks_json))
+        return spotify_provider.get_artist_top_tracks(self.spotify_id)
 
 
 class Image(graphene.ObjectType):
@@ -74,20 +70,16 @@ class Query(graphene.ObjectType):
         return query.all()
 
     def resolve_search_tracks(self, args, context, info):
-        tracks_json = spotify_api.search_tracks(args['query'])
-        return list(map(process_track, tracks_json))
+        return spotify_provider.search_tracks(args['query'])
 
     def resolve_search_artists(self, args, context, info):
-        artists_json = spotify_api.search_artists(args['query'])
-        return list(map(process_artist, artists_json))
+        return spotify_provider.search_artists(args['query'])
 
     def resolve_track(self, args, context, info):
-        track_json = spotify_api.get_track(args['id'])
-        return process_track(track_json)
+        return spotify_provider.get_track(args['id'])
 
     def resolve_artist(self, args, context, info):
-        artist_json = spotify_api.get_artist(args['id'])
-        return process_artist(artist_json)
+        return spotify_provider.get_artist(args['id'])
 
 
 #############
@@ -102,7 +94,7 @@ class CreateList(graphene.Mutation):
     list = graphene.Field(lambda: MyList)
 
     def mutate(self, args, context, info):
-        my_list = db_mutator.add_list(MyListModel(name=args.get('name')))
+        my_list = db_provider.add_list(MyListModel(name=args.get('name')))
         if my_list:
             ok = True
         else:
@@ -129,7 +121,7 @@ class AddTrack(graphene.Mutation):
                                  spotify_id=args.get('spotify_id'),
                                  youtube_id=args.get('youtube_id'),
                                  list_id=args.get('list_id'))
-        my_track = db_mutator.add_track(new_track)
+        my_track = db_provider.add_track(new_track)
         if my_track:
             ok = True
         else:
@@ -150,28 +142,3 @@ schema = graphene.Schema(
     query=Query,
     mutation=Mutation
 )
-
-
-#####################
-# utility functions #
-#####################
-
-def youtube_query_builder(artists, track_name):
-    artists_names = ", ".join(map(lambda a: a.name, artists))
-    return '{} {} Lyrics'.format(artists_names, track_name)
-
-
-def process_track(trk):
-    artists = list(map(process_artist, trk['artists']))
-    return Track(name=trk['name'],
-                 duration=trk['duration_ms'],
-                 artists=artists,
-                 spotify_id=trk['id'])
-
-
-def process_artist(art):
-    return Artist(name=art['name'], spotify_id=art['id'])
-
-
-def process_image(img):
-    return Image(width=img['width'], height=img['height'], url=img['url'])

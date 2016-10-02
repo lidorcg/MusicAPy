@@ -6,13 +6,13 @@ and returns the id of it's video.
 
 from apiclient.discovery import build
 
-
 DEVELOPER_KEY = "AIzaSyCK8R2WVOHFCZGurocP9zAEwic_U2PGlKc"
 YOUTUBE_API_SERVICE_NAME = "youtube"
 YOUTUBE_API_VERSION = "v3"
 
 
-def get_track_id(query):
+def get_track_id(artists, track_name):
+    query = query_builder(artists, track_name)
     youtube = build(YOUTUBE_API_SERVICE_NAME,
                     YOUTUBE_API_VERSION, developerKey=DEVELOPER_KEY)
 
@@ -27,3 +27,12 @@ def get_track_id(query):
     ).execute()
 
     return res['items'][0]['id']['videoId']
+
+
+#####################
+# utility functions #
+#####################
+
+def query_builder(artists, track_name):
+    artists_names = ", ".join(map(lambda a: a.name, artists))
+    return '{} {} Lyrics'.format(artists_names, track_name)

@@ -14,6 +14,9 @@ class MyList(Base):
     __tablename__ = 'list'
     id = Column(Integer, primary_key=True)
     name = Column(String)
+    tracks = relationship("MyTrack",
+                          back_populates='list',
+                          cascade="all, delete, delete-orphan")
 
 
 class MyTrack(Base):
@@ -26,9 +29,7 @@ class MyTrack(Base):
     spotify_id = Column(String)
     youtube_id = Column(String)
     list_id = Column(Integer, ForeignKey('list.id'))
-    list = relationship(
-        MyList,
-        backref=backref('tracks', uselist=True, cascade='delete,all'))
+    list = relationship("MyList", back_populates="tracks")
 
 
 # This will create all the tables on the first run

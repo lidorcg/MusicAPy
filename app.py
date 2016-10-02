@@ -1,7 +1,8 @@
 from flask import Flask
 from flask_cors import CORS
 from flask_graphql import GraphQLView
-from models import db_session
+
+from db.models import db_session
 from schema import schema
 
 app = Flask(__name__)

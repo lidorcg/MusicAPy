@@ -1,8 +1,8 @@
 import graphene
 from graphene_sqlalchemy import SQLAlchemyObjectType
 
-from models import MyList as MyListModel, MyTrack as MyTrackModel
-from providers import spotify_provider, db_provider, youtube_provider
+from db import handler, models
+from providers import spotify_provider, youtube_provider
 
 
 ##########
@@ -41,12 +41,12 @@ class Image(graphene.ObjectType):
 
 class MyList(SQLAlchemyObjectType):
     class Meta:
-        model = MyListModel
+        model = models.MyList
 
 
 class MyTrack(SQLAlchemyObjectType):
     class Meta:
-        model = MyTrackModel
+        model = models.MyTrack
 
 
 ##############
@@ -87,41 +87,65 @@ class Query(graphene.ObjectType):
 #############
 
 class CreateList(graphene.Mutation):
-    class Input:
-        name = graphene.String()
-
     ok = graphene.Boolean()
     list = graphene.Field(lambda: MyList)
 
     def mutate(self, args, context, info):
-        my_list = db_provider.add_list(MyListModel(name=args.get('name')))
+        name = args.get('name')
+
+        new_list = handler.create_list({'name': name})
+        if new_list:
+            ok = True
+        else:
+            ok = False
+        return CreateList(list=new_list, ok=ok)
+
+
+class RenameList(graphene.Mutation):
+    ok = graphene.Boolean()
+    list = graphene.Field(lambda: MyList)
+
+    def mutate(self, args, context, info):
+        list_id = args.get('list_id')
+        new_name = args.get('new_name')
+
+        my_list = handler.rename_list({'list_id': list_id,
+                                       'new_name': new_name})
         if my_list:
             ok = True
         else:
             ok = False
-        return CreateList(list=my_list, ok=ok)
+        return RenameList(list=my_list, ok=ok)
+
+
+class DeleteList(graphene.Mutation):
+    ok = graphene.Boolean()
+
+    def mutate(self, args, context, info):
+        list_id = args.get('list_id')
+
+        ok = handler.delete_list({'list_id': list_id})
+        return DeleteList(ok=ok)
+
+
+class TrackInput(graphene.InputObjectType):
+    name = graphene.String(required=True)
+    duration = graphene.String(required=True)
+    artists = graphene.String(required=True)
+    spotify_id = graphene.String(required=True)
+    youtube_id = graphene.String(required=True)
 
 
 class AddTrack(graphene.Mutation):
-    class Input:
-        name = graphene.String()
-        duration = graphene.String()
-        artists = graphene.String()
-        spotify_id = graphene.String()
-        youtube_id = graphene.String()
-        list_id = graphene.Int()
-
     ok = graphene.Boolean()
     track = graphene.Field(lambda: MyTrack)
 
     def mutate(self, args, context, info):
-        new_track = MyTrackModel(name=args.get('name'),
-                                 duration=args.get('duration'),
-                                 artists=args.get('artists'),
-                                 spotify_id=args.get('spotify_id'),
-                                 youtube_id=args.get('youtube_id'),
-                                 list_id=args.get('list_id'))
-        my_track = db_provider.add_track(new_track)
+        new_track = args.get('track')
+        list_id = args.get('list_id')
+
+        my_track = handler.add_track({'list_id': list_id,
+                                      'track': new_track})
         if my_track:
             ok = True
         else:
@@ -129,9 +153,25 @@ class AddTrack(graphene.Mutation):
         return AddTrack(track=my_track, ok=ok)
 
 
+class RemoveTrack(graphene.Mutation):
+    ok = graphene.Boolean()
+
+    def mutate(self, args, context, info):
+        track_id = args.get('track_id')
+
+        ok = handler.remove_track({'track_id': track_id})
+        return RemoveTrack(ok=ok)
+
+
 class Mutation(graphene.ObjectType):
-    create_list = CreateList.Field()
-    add_track = AddTrack.Field()
+    create_list = CreateList.Field(name=graphene.String())
+    rename_list = RenameList.Field(list_id=graphene.Int(),
+                                   new_name=graphene.String())
+    delete_list = DeleteList.Field(list_id=graphene.Int())
+
+    add_track = AddTrack.Field(track=TrackInput(),
+                               list_id=graphene.Int())
+    remove_track = RemoveTrack.Field(track_id=graphene.Int())
 
 
 ##########

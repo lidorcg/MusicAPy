@@ -3,15 +3,19 @@ from flask_cors import CORS
 from flask_graphql import GraphQLView
 
 from db.models import db_session
-from schema import schema
+from interfaces import discover, playlists
 
 app = Flask(__name__)
 app.debug = True
 CORS(app)
 
 app.add_url_rule(
-    '/graphql',
-    view_func=GraphQLView.as_view('graphql', schema=schema, graphiql=True)
+    '/discover/graphql',
+    view_func=GraphQLView.as_view('discover_graphql', schema=discover.schema, graphiql=True)
+)
+app.add_url_rule(
+    '/playlists/graphql',
+    view_func=GraphQLView.as_view('playlists_graphql', schema=playlists.schema, graphiql=True)
 )
 
 

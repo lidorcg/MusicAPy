@@ -1,43 +1,43 @@
 from sqlalchemy.orm import sessionmaker
 
-from db.models import engine, MyList, MyTrack
+from db.models import engine, Playlist, Track
 
 Session = sessionmaker(bind=engine)
 
 
-def create_list(args):
+def create_playlist(args):
     name = args['name']
 
     session = Session()
-    new_list = MyList(name=name)
-    session.add(new_list)
+    new_playlist = Playlist(name=name)
+    session.add(new_playlist)
     session.commit()
 
-    if new_list.id:
-        return new_list
+    if new_playlist.id:
+        return new_playlist
     return None
 
 
-def rename_list(args):
+def rename_playlist(args):
     new_name = args['new_name']
-    list_id = args['list_id']
+    playlist_id = args['playlist_id']
 
     session = Session()
-    my_list = session.query(MyList).get(list_id)
-    my_list.name = new_name
+    playlist = session.query(Playlist).get(playlist_id)
+    playlist.name = new_name
     session.commit()
 
-    if my_list.id:
-        return my_list
+    if playlist.id:
+        return playlist
     return None
 
 
-def delete_list(args):
-    list_id = args['list_id']
+def delete_playlist(args):
+    playlist_id = args['playlist_id']
 
     session = Session()
-    my_list = session.query(MyList).get(list_id)
-    session.delete(my_list)
+    playlist = session.query(Playlist).get(playlist_id)
+    session.delete(playlist)
     session.commit()
 
     return True
@@ -45,15 +45,15 @@ def delete_list(args):
 
 def add_track(args):
     track = args['track']
-    list_id = args['list_id']
+    playlist_id = args['playlist_id']
 
     session = Session()
-    new_track = MyTrack(name=track['name'],
-                        duration=track['duration'],
-                        artists=track['artists'],
-                        spotify_id=track['spotify_id'],
-                        youtube_id=track['youtube_id'],
-                        list_id=list_id)
+    new_track = Track(name=track['name'],
+                      duration=track['duration'],
+                      artists=track['artists'],
+                      spotify_id=track['spotify_id'],
+                      youtube_id=track['youtube_id'],
+                      playlist_id=playlist_id)
     session.add(new_track)
     session.commit()
 
@@ -66,7 +66,7 @@ def remove_track(args):
     track_id = args['track_id']
 
     session = Session()
-    my_track = session.query(MyTrack).get(track_id)
+    my_track = session.query(Track).get(track_id)
     session.delete(my_track)
     session.commit()
 

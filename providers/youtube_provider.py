@@ -34,5 +34,4 @@ def get_track_id(artists, track_name):
 #####################
 
 def query_builder(artists, track_name):
-    artists_names = ", ".join(map(lambda a: a.name, artists))
-    return '{} {} Lyrics'.format(artists_names, track_name)
+    return '{} {} Lyrics'.format(artists, track_name)

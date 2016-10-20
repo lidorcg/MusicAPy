@@ -2,6 +2,9 @@ from sqlalchemy import *
 from sqlalchemy.orm import (scoped_session, sessionmaker, relationship, backref)
 from sqlalchemy.ext.declarative import declarative_base
 
+# TODO: add artist model
+# TODO: add album model
+# TODO: add many-to-many track-playlist relation
 engine = create_engine('sqlite:///database.sqlite3', convert_unicode=True)
 db_session = scoped_session(sessionmaker(autocommit=False, autoflush=False, bind=engine))
 
@@ -10,16 +13,16 @@ Base = declarative_base()
 Base.query = db_session.query_property()
 
 
-class MyList(Base):
-    __tablename__ = 'list'
+class Playlist(Base):
+    __tablename__ = 'playlist'
     id = Column(Integer, primary_key=True)
     name = Column(String)
-    tracks = relationship("MyTrack",
-                          back_populates='list',
-                          cascade="all, delete, delete-orphan")
+    tracks = relationship('Track',
+                          back_populates='playlist',
+                          cascade='all, delete, delete-orphan')
 
 
-class MyTrack(Base):
+class Track(Base):
     __tablename__ = 'track'
     id = Column(Integer, primary_key=True)
     name = Column(String)
@@ -28,8 +31,8 @@ class MyTrack(Base):
     # album = Column(String)
     spotify_id = Column(String)
     youtube_id = Column(String)
-    list_id = Column(Integer, ForeignKey('list.id'))
-    list = relationship("MyList", back_populates="tracks")
+    playlist_id = Column(Integer, ForeignKey('playlist.id'))
+    playlist = relationship('Playlist', back_populates='tracks')
 
 
 # This will create all the tables on the first run

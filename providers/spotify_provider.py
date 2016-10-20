@@ -5,7 +5,8 @@ and retrieve their metadata.
 """
 
 import spotipy
-import schema
+
+from interfaces import discover
 
 sp = spotipy.Spotify()
 
@@ -45,16 +46,16 @@ def get_artist_images(artist_id):
 #####################
 
 def process_track(trk):
-    artists = list(map(process_artist, trk['artists']))
-    return schema.Track(name=trk['name'],
-                        duration=trk['duration_ms'],
-                        artists=artists,
-                        spotify_id=trk['id'])
+    artists = ", ".join(map(process_artist, trk['artists']))
+    return discover.Track(name=trk['name'],
+                          duration=trk['duration_ms'],
+                          artists=artists,
+                          spotify_id=trk['id'])
 
 
 def process_artist(art):
-    return schema.Artist(name=art['name'], spotify_id=art['id'])
+    return art['name']
 
 
 def process_image(img):
-    return schema.Image(width=img['width'], height=img['height'], url=img['url'])
+    return discover.Image(width=img['width'], height=img['height'], url=img['url'])

@@ -6,7 +6,15 @@ and returns the id of it's video.
 
 from apiclient.discovery import build
 
-DEVELOPER_KEY = "AIzaSyCK8R2WVOHFCZGurocP9zAEwic_U2PGlKc"
+# Read in the file containing the authorization token.
+f = open("./developer-key")
+dk = f.read()
+# Get rid of leading and trailing whitespace.
+dk = dk.strip()
+f.close()
+
+
+DEVELOPER_KEY = dk
 YOUTUBE_API_SERVICE_NAME = "youtube"
 YOUTUBE_API_VERSION = "v3"
 

@@ -23,14 +23,14 @@ class Track(SQLAlchemyObjectType):
 ##############
 
 class Query(graphene.ObjectType):
-    all_playlists = graphene.List(Playlist)
-    all_tracks = graphene.List(Track)
+    playlists = graphene.List(Playlist)
+    tracks = graphene.List(Track)
 
-    def resolve_all_playlists(self, args, context, info):
+    def resolve_playlists(self, args, context, info):
         query = Playlist.get_query(context)  # SQLAlchemy query
         return query.all()
 
-    def resolve_all_tracks(self, args, context, info):
+    def resolve_tracks(self, args, context, info):
         query = Track.get_query(context)  # SQLAlchemy query
         return query.all()
 
@@ -117,10 +117,10 @@ class RemoveTrack(graphene.Mutation):
 
 
 class Mutation(graphene.ObjectType):
-    create_list = CreatePlaylist.Field(name=graphene.String())
-    rename_list = RenamePlaylist.Field(playlist_id=graphene.Int(),
+    create_playlist = CreatePlaylist.Field(name=graphene.String())
+    rename_playlist = RenamePlaylist.Field(playlist_id=graphene.Int(),
                                        new_name=graphene.String())
-    delete_list = DeletePlaylist.Field(playlist_id=graphene.Int())
+    delete_playlist = DeletePlaylist.Field(playlist_id=graphene.Int())
 
     add_track = AddTrack.Field(track=TrackInput(),
                                playlist_id=graphene.Int())

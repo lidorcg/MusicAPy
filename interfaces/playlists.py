@@ -41,7 +41,7 @@ class Query(graphene.ObjectType):
 
 class CreatePlaylist(graphene.Mutation):
     ok = graphene.Boolean()
-    playlist = graphene.Field(lambda: Playlist)
+    playlists = graphene.List(lambda: Playlist)
 
     def mutate(self, args, context, info):
         name = args.get('name')
@@ -51,12 +51,14 @@ class CreatePlaylist(graphene.Mutation):
             ok = True
         else:
             ok = False
-        return CreatePlaylist(playlist=new_playlist, ok=ok)
+
+        query = Playlist.get_query(context)
+        return CreatePlaylist(playlists=query.all(), ok=ok)
 
 
 class RenamePlaylist(graphene.Mutation):
     ok = graphene.Boolean()
-    playlist = graphene.Field(lambda: Playlist)
+    playlists = graphene.List(lambda: Playlist)
 
     def mutate(self, args, context, info):
         playlist_id = args.get('playlist_id')
@@ -68,17 +70,21 @@ class RenamePlaylist(graphene.Mutation):
             ok = True
         else:
             ok = False
-        return RenamePlaylist(playlist=playlist, ok=ok)
+
+        query = Playlist.get_query(context)
+        return RenamePlaylist(playlists=query.all(), ok=ok)
 
 
 class DeletePlaylist(graphene.Mutation):
     ok = graphene.Boolean()
+    playlists = graphene.List(lambda: Playlist)
 
     def mutate(self, args, context, info):
         playlist_id = args.get('playlist_id')
 
         ok = handler.delete_playlist({'playlist_id': playlist_id})
-        return DeletePlaylist(ok=ok)
+        query = Playlist.get_query(context)
+        return DeletePlaylist(playlists=query.all(), ok=ok)
 
 
 class TrackInput(graphene.InputObjectType):
@@ -91,7 +97,7 @@ class TrackInput(graphene.InputObjectType):
 
 class AddTrack(graphene.Mutation):
     ok = graphene.Boolean()
-    track = graphene.Field(lambda: Track)
+    playlists = graphene.List(lambda: Playlist)
 
     def mutate(self, args, context, info):
         new_track = args.get('track')
@@ -103,7 +109,9 @@ class AddTrack(graphene.Mutation):
             ok = True
         else:
             ok = False
-        return AddTrack(track=track, ok=ok)
+
+        query = Playlist.get_query(context)
+        return AddTrack(playlists=query.all(), ok=ok)
 
 
 class RemoveTrack(graphene.Mutation):
@@ -113,18 +121,19 @@ class RemoveTrack(graphene.Mutation):
         track_id = args.get('track_id')
 
         ok = handler.remove_track({'track_id': track_id})
-        return RemoveTrack(ok=ok)
+        query = Playlist.get_query(context)
+        return RemoveTrack(playlists=query.all(), ok=ok)
 
 
 class Mutation(graphene.ObjectType):
     create_playlist = CreatePlaylist.Field(name=graphene.String())
-    rename_playlist = RenamePlaylist.Field(playlist_id=graphene.Int(),
+    rename_playlist = RenamePlaylist.Field(playlist_id=graphene.String(),
                                        new_name=graphene.String())
-    delete_playlist = DeletePlaylist.Field(playlist_id=graphene.Int())
+    delete_playlist = DeletePlaylist.Field(playlist_id=graphene.String())
 
     add_track = AddTrack.Field(track=TrackInput(),
-                               playlist_id=graphene.Int())
-    remove_track = RemoveTrack.Field(track_id=graphene.Int())
+                               playlist_id=graphene.String())
+    remove_track = RemoveTrack.Field(track_id=graphene.String())
 
 
 ##########

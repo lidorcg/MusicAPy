@@ -43,7 +43,7 @@ def delete_playlist(args):
     return True
 
 
-def add_track(args):
+def add_track_to_playlist(args):
     track = args['track']
     playlist_id = args['playlist_id']
 
@@ -51,7 +51,7 @@ def add_track(args):
     new_track = Track(name=track['name'],
                       duration=track['duration'],
                       artists=track['artists'],
-                      spotify_id=track['spotify_id'],
+                      spotify_id='',
                       youtube_id=track['youtube_id'],
                       playlist_id=playlist_id)
     session.add(new_track)

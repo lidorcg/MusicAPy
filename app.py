@@ -12,12 +12,17 @@ CORS(app)
 
 app.add_url_rule(
     '/discover/graphql',
-    view_func=GraphQLView.as_view('discover_graphql', schema=discover.schema, graphiql=True)
+    view_func=GraphQLView.as_view('discover_graphql',
+                                  schema=discover.schema,
+                                  graphiql=True)
 )
 app.add_url_rule(
     '/playlists/graphql',
-    view_func=GraphQLView.as_view('playlists_graphql', schema=playlists.schema, graphiql=True)
+    view_func=GraphQLView.as_view('playlists_graphql',
+                                  schema=playlists.schema,
+                                  graphiql=True)
 )
+
 
 @app.route('/client/<path:filename>')
 def serve_static(filename):

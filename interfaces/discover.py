@@ -18,7 +18,9 @@ class Track(graphene.ObjectType):
     youtube_id = graphene.String()
 
     def resolve_youtube_id(self, args, context, info):
-        return youtube_provider.get_track_id(self.artists, self.name)
+        return youtube_provider.get_track_id(self.artists,
+                                             self.name,
+                                             self.duration)
 
 
 class Artist(graphene.ObjectType):

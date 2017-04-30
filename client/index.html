@@ -10938,8 +10938,9 @@ var _user$project$Views_TrackList$viewTrackDuration = function (time) {
 		_elm_lang$core$Result$withDefault,
 		0,
 		_elm_lang$core$String$toInt(time));
-	var minutes = (((ms / 1000) | 0) / 60) | 0;
-	var seconds = (ms / A2(_elm_lang$core$Basics$rem, 1000, 60)) | 0;
+	var s = (ms / 1000) | 0;
+	var minutes = (s / 60) | 0;
+	var seconds = A2(_elm_lang$core$Basics$rem, s, 60);
 	var zeroPadding = (_elm_lang$core$Native_Utils.cmp(seconds, 10) < 0) ? '0' : '';
 	return A2(
 		_elm_lang$core$Basics_ops['++'],

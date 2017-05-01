@@ -49,8 +49,7 @@ def process_track(trk):
     artists = ", ".join(map(process_artist, trk['artists']))
     return discover.Track(name=trk['name'],
                           duration=trk['duration_ms'],
-                          artists=artists,
-                          spotify_id=trk['id'])
+                          artists=artists)
 
 
 def process_artist(art):

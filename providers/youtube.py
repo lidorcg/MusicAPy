@@ -68,6 +68,9 @@ def youtube_videos_details(videos_ids):
 
 
 def find_best_match(videos_response, duration):
+    # TODO: find better match for hebrew
+    if duration == 0:
+        return videos_response['items'][1]
     # convert duration from millisecond string to time object
     time_duration = datetime.utcfromtimestamp(int(duration) / 1000).time()
     # convert duration from PTMXXSXX string to time object

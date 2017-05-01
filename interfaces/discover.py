@@ -1,5 +1,5 @@
 import graphene
-from providers import spotify, youtube
+from providers import lastfm, spotify, youtube
 
 
 # TODO: connect track model with artist model
@@ -14,7 +14,6 @@ class Track(graphene.ObjectType):
     name = graphene.String()
     duration = graphene.String()
     artists = graphene.String()
-    spotify_id = graphene.String()
     youtube_id = graphene.String()
 
     def resolve_youtube_id(self, args, context, info):
@@ -45,22 +44,27 @@ class Image(graphene.ObjectType):
 ##############
 
 class Query(graphene.ObjectType):
-    search_tracks = graphene.List(Track, query=graphene.String())
-    search_artists = graphene.List(Artist, query=graphene.String())
-    track = graphene.Field(Track, id=graphene.String())
-    artist = graphene.Field(Artist, id=graphene.String())
+    search_tracks_spotify = graphene.List(Track, query=graphene.String())
+    search_artists_spotify = graphene.List(Artist, query=graphene.String())
+    search_tracks_by_name_lastfm = \
+        graphene.List(Track,
+                      artist_name=graphene.String(),
+                      track_name=graphene.String())
+    search_tracks_by_artist_name_lastfm = \
+        graphene.List(Track, artist_name=graphene.String())
 
-    def resolve_search_tracks(self, args, context, info):
+    def resolve_search_tracks_spotify(self, args, context, info):
         return spotify.search_tracks(args['query'])
 
-    def resolve_search_artists(self, args, context, info):
+    def resolve_search_artists_spotify(self, args, context, info):
         return spotify.search_artists(args['query'])
 
-    def resolve_track(self, args, context, info):
-        return spotify.get_track(args['id'])
+    def search_tracks_by_track_name_lastfm(self, args, context, info):
+        return lastfm.search_tracks_by_name(args['track_name'],
+                                            args['artist_name'])
 
-    def resolve_artist(self, args, context, info):
-        return spotify.get_artist(args['id'])
+    def resolve_search_tracks_by_artist_name_lastfm(self, args, context, info):
+        return lastfm.search_tracks_by_artist_name(args['artist_name'])
 
 
 ##########
@@ -68,5 +72,4 @@ class Query(graphene.ObjectType):
 ##########
 
 schema = graphene.Schema(
-    query=Query,
-    )
+    query=Query,)

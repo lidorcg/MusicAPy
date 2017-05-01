@@ -51,7 +51,6 @@ def add_track_to_playlist(args):
     new_track = Track(name=track['name'],
                       duration=track['duration'],
                       artists=track['artists'],
-                      spotify_id='',
                       youtube_id=track['youtube_id'],
                       playlist_id=playlist_id)
     session.add(new_track)

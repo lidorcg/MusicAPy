@@ -1,5 +1,5 @@
 import graphene
-from providers import spotify_provider, youtube_provider
+from providers import spotify, youtube
 
 
 # TODO: connect track model with artist model
@@ -18,9 +18,7 @@ class Track(graphene.ObjectType):
     youtube_id = graphene.String()
 
     def resolve_youtube_id(self, args, context, info):
-        return youtube_provider.get_track_id(self.artists,
-                                             self.name,
-                                             self.duration)
+        return youtube.get_track_id(self.artists, self.name, self.duration)
 
 
 class Artist(graphene.ObjectType):
@@ -30,10 +28,10 @@ class Artist(graphene.ObjectType):
     spotify_id = graphene.String()
 
     def resolve_images(self, args, context, info):
-        return spotify_provider.get_artist_images(self.spotify_id)
+        return spotify.get_artist_images(self.spotify_id)
 
     def resolve_tracks(self, args, context, info):
-        return spotify_provider.get_artist_top_tracks(self.spotify_id)
+        return spotify.get_artist_top_tracks(self.spotify_id)
 
 
 class Image(graphene.ObjectType):
@@ -53,16 +51,16 @@ class Query(graphene.ObjectType):
     artist = graphene.Field(Artist, id=graphene.String())
 
     def resolve_search_tracks(self, args, context, info):
-        return spotify_provider.search_tracks(args['query'])
+        return spotify.search_tracks(args['query'])
 
     def resolve_search_artists(self, args, context, info):
-        return spotify_provider.search_artists(args['query'])
+        return spotify.search_artists(args['query'])
 
     def resolve_track(self, args, context, info):
-        return spotify_provider.get_track(args['id'])
+        return spotify.get_track(args['id'])
 
     def resolve_artist(self, args, context, info):
-        return spotify_provider.get_artist(args['id'])
+        return spotify.get_artist(args['id'])
 
 
 ##########
@@ -71,4 +69,4 @@ class Query(graphene.ObjectType):
 
 schema = graphene.Schema(
     query=Query,
-)
+    )

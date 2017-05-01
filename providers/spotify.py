@@ -58,4 +58,6 @@ def process_artist(art):
 
 
 def process_image(img):
-    return discover.Image(width=img['width'], height=img['height'], url=img['url'])
+    return discover.Image(width=img['width'],
+                          height=img['height'],
+                          url=img['url'])

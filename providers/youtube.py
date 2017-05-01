@@ -41,13 +41,13 @@ def get_track_id(artists, track, duration):
     return best_match['id']
 
 
-#####################
-# utility functions #
-#####################
+#######################
+# auxiliary functions #
+#######################
 
 
 def query_builder(artists, track):
-    return '{} {}'.format(artists, track)
+    return '{} {} Lyrics'.format(artists, track)
 
 
 def youtube_search(query):
@@ -57,14 +57,14 @@ def youtube_search(query):
         type="video",
         videoCategoryId="10",
         maxResults="10"
-    ).execute()
+        ).execute()
 
 
 def youtube_videos_details(videos_ids):
     return youtube.videos().list(
         id=",".join(videos_ids),
         part='contentDetails'
-    ).execute()
+        ).execute()
 
 
 def find_best_match(videos_response, duration):

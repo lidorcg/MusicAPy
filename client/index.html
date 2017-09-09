@@ -1563,8 +1563,7 @@ function toString(v)
 	var type = typeof v;
 	if (type === 'function')
 	{
-		var name = v.func ? v.func.name : v.name;
-		return '<function' + (name === '' ? '' : ':') + name + '>';
+		return '<function>';
 	}
 
 	if (type === 'boolean')
@@ -2067,6 +2066,13 @@ return {
 var _elm_lang$core$List$sortBy = _elm_lang$core$Native_List.sortBy;
 var _elm_lang$core$List$sort = function (xs) {
 	return A2(_elm_lang$core$List$sortBy, _elm_lang$core$Basics$identity, xs);
+};
+var _elm_lang$core$List$singleton = function (value) {
+	return {
+		ctor: '::',
+		_0: value,
+		_1: {ctor: '[]'}
+	};
 };
 var _elm_lang$core$List$drop = F2(
 	function (n, list) {
@@ -3510,15 +3516,8 @@ function setupIncomingPort(name, callback)
 		sentBeforeInit.push(value);
 	}
 
-	function postInitSend(incomingValue)
+	function postInitSend(value)
 	{
-		var result = A2(_elm_lang$core$Json_Decode$decodeValue, converter, incomingValue);
-		if (result.ctor === 'Err')
-		{
-			throw new Error('Trying to send an unexpected type of value through port `' + name + '`:\n' + result._0);
-		}
-
-		var value = result._0;
 		var temp = subs;
 		while (temp.ctor !== '[]')
 		{
@@ -3529,7 +3528,13 @@ function setupIncomingPort(name, callback)
 
 	function send(incomingValue)
 	{
-		currentSend(incomingValue);
+		var result = A2(_elm_lang$core$Json_Decode$decodeValue, converter, incomingValue);
+		if (result.ctor === 'Err')
+		{
+			throw new Error('Trying to send an unexpected type of value through port `' + name + '`:\n' + result._0);
+		}
+
+		currentSend(result._0);
 	}
 
 	return { send: send };
@@ -4143,7 +4148,7 @@ function endsWith(sub, str)
 function indexes(sub, str)
 {
 	var subLen = sub.length;
-	
+
 	if (subLen < 1)
 	{
 		return _elm_lang$core$Native_List.Nil;
@@ -4156,74 +4161,78 @@ function indexes(sub, str)
 	{
 		is.push(i);
 		i = i + subLen;
-	}	
-	
+	}
+
 	return _elm_lang$core$Native_List.fromArray(is);
 }
+
 
 function toInt(s)
 {
 	var len = s.length;
+
+	// if empty
 	if (len === 0)
 	{
-		return _elm_lang$core$Result$Err("could not convert string '" + s + "' to an Int" );
+		return intErr(s);
 	}
-	var start = 0;
-	if (s[0] === '-')
+
+	// if hex
+	var c = s[0];
+	if (c === '0' && s[1] === 'x')
 	{
-		if (len === 1)
+		for (var i = 2; i < len; ++i)
 		{
-			return _elm_lang$core$Result$Err("could not convert string '" + s + "' to an Int" );
+			var c = s[i];
+			if (('0' <= c && c <= '9') || ('A' <= c && c <= 'F') || ('a' <= c && c <= 'f'))
+			{
+				continue;
+			}
+			return intErr(s);
 		}
-		start = 1;
+		return _elm_lang$core$Result$Ok(parseInt(s, 16));
 	}
-	for (var i = start; i < len; ++i)
+
+	// is decimal
+	if (c > '9' || (c < '0' && c !== '-' && c !== '+'))
+	{
+		return intErr(s);
+	}
+	for (var i = 1; i < len; ++i)
 	{
 		var c = s[i];
 		if (c < '0' || '9' < c)
 		{
-			return _elm_lang$core$Result$Err("could not convert string '" + s + "' to an Int" );
+			return intErr(s);
 		}
 	}
+
 	return _elm_lang$core$Result$Ok(parseInt(s, 10));
 }
 
+function intErr(s)
+{
+	return _elm_lang$core$Result$Err("could not convert string '" + s + "' to an Int");
+}
+
+
 function toFloat(s)
 {
-	var len = s.length;
-	if (len === 0)
+	// check if it is a hex, octal, or binary number
+	if (s.length === 0 || /[\sxbo]/.test(s))
 	{
-		return _elm_lang$core$Result$Err("could not convert string '" + s + "' to a Float" );
+		return floatErr(s);
 	}
-	var start = 0;
-	if (s[0] === '-')
-	{
-		if (len === 1)
-		{
-			return _elm_lang$core$Result$Err("could not convert string '" + s + "' to a Float" );
-		}
-		start = 1;
-	}
-	var dotCount = 0;
-	for (var i = start; i < len; ++i)
-	{
-		var c = s[i];
-		if ('0' <= c && c <= '9')
-		{
-			continue;
-		}
-		if (c === '.')
-		{
-			dotCount += 1;
-			if (dotCount <= 1)
-			{
-				continue;
-			}
-		}
-		return _elm_lang$core$Result$Err("could not convert string '" + s + "' to a Float" );
-	}
-	return _elm_lang$core$Result$Ok(parseFloat(s));
+	var n = +s;
+	// faster isNaN check
+	return n === n ? _elm_lang$core$Result$Ok(n) : floatErr(s);
 }
+
+function floatErr(s)
+{
+	return _elm_lang$core$Result$Err("could not convert string '" + s + "' to a Float");
+}
+
 
 function toList(str)
 {
@@ -5672,11 +5681,6 @@ function badToString(problem)
 				problem = problem.rest;
 				break;
 
-			case 'index':
-				context += '[' + problem.index + ']';
-				problem = problem.rest;
-				break;
-
 			case 'oneOf':
 				var problems = problem.problems;
 				for (var i = 0; i < problems.length; i++)
@@ -6592,9 +6596,9 @@ function on(name, options, decoder)
 
 function equalEvents(a, b)
 {
-	if (!a.options === b.options)
+	if (a.options !== b.options)
 	{
-		if (a.stopPropagation !== b.stopPropagation || a.preventDefault !== b.preventDefault)
+		if (a.options.stopPropagation !== b.options.stopPropagation || a.options.preventDefault !== b.options.preventDefault)
 		{
 			return false;
 		}
@@ -7870,7 +7874,7 @@ function normalRenderer(parentNode, view)
 var rAF =
 	typeof requestAnimationFrame !== 'undefined'
 		? requestAnimationFrame
-		: function(callback) { callback(); };
+		: function(callback) { setTimeout(callback, 1000 / 60); };
 
 function makeStepper(domNode, view, initialVirtualNode, eventNode)
 {
@@ -8828,6 +8832,12 @@ var _elm_lang$html$Html_Events$Options = F2(
 	function (a, b) {
 		return {stopPropagation: a, preventDefault: b};
 	});
+var _elm_lang$html$Html_Keyed$node = _elm_lang$virtual_dom$VirtualDom$keyedNode;
+var _elm_lang$html$Html_Keyed$ol = _elm_lang$html$Html_Keyed$node('ol');
+var _elm_lang$html$Html_Keyed$ul = _elm_lang$html$Html_Keyed$node('ul');
+var _elm_lang$html$Html_Lazy$lazy3 = _elm_lang$virtual_dom$VirtualDom$lazy3;
+var _elm_lang$html$Html_Lazy$lazy2 = _elm_lang$virtual_dom$VirtualDom$lazy2;
+var _elm_lang$html$Html_Lazy$lazy = _elm_lang$virtual_dom$VirtualDom$lazy;
 var _elm_lang$http$Native_Http = function() {
 
 
@@ -9368,6 +9378,479 @@ var _elm_lang$mouse$Mouse$subMap = F2(
 			});
 	});
 _elm_lang$core$Native_Platform.effectManagers['Mouse'] = {pkg: 'elm-lang/mouse', init: _elm_lang$mouse$Mouse$init, onEffects: _elm_lang$mouse$Mouse$onEffects, onSelfMsg: _elm_lang$mouse$Mouse$onSelfMsg, tag: 'sub', subMap: _elm_lang$mouse$Mouse$subMap};
+var _evancz$elm_sortable_table$Table$findSorter = F2(
+	function (selectedColumn, columnData) {
+		findSorter:
+		while (true) {
+			var _p0 = columnData;
+			if (_p0.ctor === '[]') {
+				return _elm_lang$core$Maybe$Nothing;
+			} else {
+				if (_elm_lang$core$Native_Utils.eq(_p0._0.name, selectedColumn)) {
+					return _elm_lang$core$Maybe$Just(_p0._0.sorter);
+				} else {
+					var _v1 = selectedColumn,
+						_v2 = _p0._1;
+					selectedColumn = _v1;
+					columnData = _v2;
+					continue findSorter;
+				}
+			}
+		}
+	});
+var _evancz$elm_sortable_table$Table$applySorter = F3(
+	function (isReversed, sorter, data) {
+		var _p1 = sorter;
+		switch (_p1.ctor) {
+			case 'None':
+				return data;
+			case 'Increasing':
+				return _p1._0(data);
+			case 'Decreasing':
+				return _elm_lang$core$List$reverse(
+					_p1._0(data));
+			case 'IncOrDec':
+				var _p2 = _p1._0;
+				return isReversed ? _elm_lang$core$List$reverse(
+					_p2(data)) : _p2(data);
+			default:
+				var _p3 = _p1._0;
+				return isReversed ? _p3(data) : _elm_lang$core$List$reverse(
+					_p3(data));
+		}
+	});
+var _evancz$elm_sortable_table$Table$sort = F3(
+	function (_p4, columnData, data) {
+		var _p5 = _p4;
+		var _p6 = A2(_evancz$elm_sortable_table$Table$findSorter, _p5._0, columnData);
+		if (_p6.ctor === 'Nothing') {
+			return data;
+		} else {
+			return A3(_evancz$elm_sortable_table$Table$applySorter, _p5._1, _p6._0, data);
+		}
+	});
+var _evancz$elm_sortable_table$Table$viewCell = F2(
+	function (data, _p7) {
+		var _p8 = _p7;
+		var details = _p8.viewData(data);
+		return A2(_elm_lang$html$Html$td, details.attributes, details.children);
+	});
+var _evancz$elm_sortable_table$Table$viewRowHelp = F3(
+	function (columns, toRowAttrs, data) {
+		return A2(
+			_elm_lang$html$Html$tr,
+			toRowAttrs(data),
+			A2(
+				_elm_lang$core$List$map,
+				_evancz$elm_sortable_table$Table$viewCell(data),
+				columns));
+	});
+var _evancz$elm_sortable_table$Table$viewRow = F4(
+	function (toId, columns, toRowAttrs, data) {
+		return {
+			ctor: '_Tuple2',
+			_0: toId(data),
+			_1: A4(_elm_lang$html$Html_Lazy$lazy3, _evancz$elm_sortable_table$Table$viewRowHelp, columns, toRowAttrs, data)
+		};
+	});
+var _evancz$elm_sortable_table$Table$simpleRowAttrs = function (_p9) {
+	return {ctor: '[]'};
+};
+var _evancz$elm_sortable_table$Table$lightGrey = function (symbol) {
+	return A2(
+		_elm_lang$html$Html$span,
+		{
+			ctor: '::',
+			_0: _elm_lang$html$Html_Attributes$style(
+				{
+					ctor: '::',
+					_0: {ctor: '_Tuple2', _0: 'color', _1: '#ccc'},
+					_1: {ctor: '[]'}
+				}),
+			_1: {ctor: '[]'}
+		},
+		{
+			ctor: '::',
+			_0: _elm_lang$html$Html$text(
+				A2(_elm_lang$core$Basics_ops['++'], ' ', symbol)),
+			_1: {ctor: '[]'}
+		});
+};
+var _evancz$elm_sortable_table$Table$darkGrey = function (symbol) {
+	return A2(
+		_elm_lang$html$Html$span,
+		{
+			ctor: '::',
+			_0: _elm_lang$html$Html_Attributes$style(
+				{
+					ctor: '::',
+					_0: {ctor: '_Tuple2', _0: 'color', _1: '#555'},
+					_1: {ctor: '[]'}
+				}),
+			_1: {ctor: '[]'}
+		},
+		{
+			ctor: '::',
+			_0: _elm_lang$html$Html$text(
+				A2(_elm_lang$core$Basics_ops['++'], ' ', symbol)),
+			_1: {ctor: '[]'}
+		});
+};
+var _evancz$elm_sortable_table$Table$simpleTheadHelp = function (_p10) {
+	var _p11 = _p10;
+	var _p13 = _p11._0;
+	var content = function () {
+		var _p12 = _p11._1;
+		switch (_p12.ctor) {
+			case 'Unsortable':
+				return {
+					ctor: '::',
+					_0: _elm_lang$html$Html$text(_p13),
+					_1: {ctor: '[]'}
+				};
+			case 'Sortable':
+				return {
+					ctor: '::',
+					_0: _elm_lang$html$Html$text(_p13),
+					_1: {
+						ctor: '::',
+						_0: _p12._0 ? _evancz$elm_sortable_table$Table$darkGrey('↓') : _evancz$elm_sortable_table$Table$lightGrey('↓'),
+						_1: {ctor: '[]'}
+					}
+				};
+			default:
+				if (_p12._0.ctor === 'Nothing') {
+					return {
+						ctor: '::',
+						_0: _elm_lang$html$Html$text(_p13),
+						_1: {
+							ctor: '::',
+							_0: _evancz$elm_sortable_table$Table$lightGrey('↕'),
+							_1: {ctor: '[]'}
+						}
+					};
+				} else {
+					return {
+						ctor: '::',
+						_0: _elm_lang$html$Html$text(_p13),
+						_1: {
+							ctor: '::',
+							_0: _evancz$elm_sortable_table$Table$darkGrey(
+								_p12._0._0 ? '↑' : '↓'),
+							_1: {ctor: '[]'}
+						}
+					};
+				}
+		}
+	}();
+	return A2(
+		_elm_lang$html$Html$th,
+		{
+			ctor: '::',
+			_0: _p11._2,
+			_1: {ctor: '[]'}
+		},
+		content);
+};
+var _evancz$elm_sortable_table$Table$Customizations = F6(
+	function (a, b, c, d, e, f) {
+		return {tableAttrs: a, caption: b, thead: c, tfoot: d, tbodyAttrs: e, rowAttrs: f};
+	});
+var _evancz$elm_sortable_table$Table$HtmlDetails = F2(
+	function (a, b) {
+		return {attributes: a, children: b};
+	});
+var _evancz$elm_sortable_table$Table$simpleThead = function (headers) {
+	return A2(
+		_evancz$elm_sortable_table$Table$HtmlDetails,
+		{ctor: '[]'},
+		A2(_elm_lang$core$List$map, _evancz$elm_sortable_table$Table$simpleTheadHelp, headers));
+};
+var _evancz$elm_sortable_table$Table$defaultCustomizations = {
+	tableAttrs: {ctor: '[]'},
+	caption: _elm_lang$core$Maybe$Nothing,
+	thead: _evancz$elm_sortable_table$Table$simpleThead,
+	tfoot: _elm_lang$core$Maybe$Nothing,
+	tbodyAttrs: {ctor: '[]'},
+	rowAttrs: _evancz$elm_sortable_table$Table$simpleRowAttrs
+};
+var _evancz$elm_sortable_table$Table$textDetails = function (str) {
+	return A2(
+		_evancz$elm_sortable_table$Table$HtmlDetails,
+		{ctor: '[]'},
+		{
+			ctor: '::',
+			_0: _elm_lang$html$Html$text(str),
+			_1: {ctor: '[]'}
+		});
+};
+var _evancz$elm_sortable_table$Table$ColumnData = F3(
+	function (a, b, c) {
+		return {name: a, viewData: b, sorter: c};
+	});
+var _evancz$elm_sortable_table$Table$State = F2(
+	function (a, b) {
+		return {ctor: 'State', _0: a, _1: b};
+	});
+var _evancz$elm_sortable_table$Table$initialSort = function (header) {
+	return A2(_evancz$elm_sortable_table$Table$State, header, false);
+};
+var _evancz$elm_sortable_table$Table$onClick = F3(
+	function (name, isReversed, toMsg) {
+		return A2(
+			_elm_lang$html$Html_Events$on,
+			'click',
+			A2(
+				_elm_lang$core$Json_Decode$map,
+				toMsg,
+				A3(
+					_elm_lang$core$Json_Decode$map2,
+					_evancz$elm_sortable_table$Table$State,
+					_elm_lang$core$Json_Decode$succeed(name),
+					_elm_lang$core$Json_Decode$succeed(isReversed))));
+	});
+var _evancz$elm_sortable_table$Table$Config = function (a) {
+	return {ctor: 'Config', _0: a};
+};
+var _evancz$elm_sortable_table$Table$config = function (_p14) {
+	var _p15 = _p14;
+	return _evancz$elm_sortable_table$Table$Config(
+		{
+			toId: _p15.toId,
+			toMsg: _p15.toMsg,
+			columns: A2(
+				_elm_lang$core$List$map,
+				function (_p16) {
+					var _p17 = _p16;
+					return _p17._0;
+				},
+				_p15.columns),
+			customizations: _evancz$elm_sortable_table$Table$defaultCustomizations
+		});
+};
+var _evancz$elm_sortable_table$Table$customConfig = function (_p18) {
+	var _p19 = _p18;
+	return _evancz$elm_sortable_table$Table$Config(
+		{
+			toId: _p19.toId,
+			toMsg: _p19.toMsg,
+			columns: A2(
+				_elm_lang$core$List$map,
+				function (_p20) {
+					var _p21 = _p20;
+					return _p21._0;
+				},
+				_p19.columns),
+			customizations: _p19.customizations
+		});
+};
+var _evancz$elm_sortable_table$Table$Reversible = function (a) {
+	return {ctor: 'Reversible', _0: a};
+};
+var _evancz$elm_sortable_table$Table$Sortable = function (a) {
+	return {ctor: 'Sortable', _0: a};
+};
+var _evancz$elm_sortable_table$Table$Unsortable = {ctor: 'Unsortable'};
+var _evancz$elm_sortable_table$Table$toHeaderInfo = F3(
+	function (_p23, toMsg, _p22) {
+		var _p24 = _p23;
+		var _p29 = _p24._0;
+		var _p28 = _p24._1;
+		var _p25 = _p22;
+		var _p27 = _p25.name;
+		var _p26 = _p25.sorter;
+		switch (_p26.ctor) {
+			case 'None':
+				return {
+					ctor: '_Tuple3',
+					_0: _p27,
+					_1: _evancz$elm_sortable_table$Table$Unsortable,
+					_2: A3(_evancz$elm_sortable_table$Table$onClick, _p29, _p28, toMsg)
+				};
+			case 'Increasing':
+				return {
+					ctor: '_Tuple3',
+					_0: _p27,
+					_1: _evancz$elm_sortable_table$Table$Sortable(
+						_elm_lang$core$Native_Utils.eq(_p27, _p29)),
+					_2: A3(_evancz$elm_sortable_table$Table$onClick, _p27, false, toMsg)
+				};
+			case 'Decreasing':
+				return {
+					ctor: '_Tuple3',
+					_0: _p27,
+					_1: _evancz$elm_sortable_table$Table$Sortable(
+						_elm_lang$core$Native_Utils.eq(_p27, _p29)),
+					_2: A3(_evancz$elm_sortable_table$Table$onClick, _p27, false, toMsg)
+				};
+			case 'IncOrDec':
+				return _elm_lang$core$Native_Utils.eq(_p27, _p29) ? {
+					ctor: '_Tuple3',
+					_0: _p27,
+					_1: _evancz$elm_sortable_table$Table$Reversible(
+						_elm_lang$core$Maybe$Just(_p28)),
+					_2: A3(_evancz$elm_sortable_table$Table$onClick, _p27, !_p28, toMsg)
+				} : {
+					ctor: '_Tuple3',
+					_0: _p27,
+					_1: _evancz$elm_sortable_table$Table$Reversible(_elm_lang$core$Maybe$Nothing),
+					_2: A3(_evancz$elm_sortable_table$Table$onClick, _p27, false, toMsg)
+				};
+			default:
+				return _elm_lang$core$Native_Utils.eq(_p27, _p29) ? {
+					ctor: '_Tuple3',
+					_0: _p27,
+					_1: _evancz$elm_sortable_table$Table$Reversible(
+						_elm_lang$core$Maybe$Just(_p28)),
+					_2: A3(_evancz$elm_sortable_table$Table$onClick, _p27, !_p28, toMsg)
+				} : {
+					ctor: '_Tuple3',
+					_0: _p27,
+					_1: _evancz$elm_sortable_table$Table$Reversible(_elm_lang$core$Maybe$Nothing),
+					_2: A3(_evancz$elm_sortable_table$Table$onClick, _p27, false, toMsg)
+				};
+		}
+	});
+var _evancz$elm_sortable_table$Table$view = F3(
+	function (_p30, state, data) {
+		var _p31 = _p30;
+		var _p35 = _p31._0.customizations;
+		var _p34 = _p31._0.columns;
+		var theadDetails = _p35.thead(
+			A2(
+				_elm_lang$core$List$map,
+				A2(_evancz$elm_sortable_table$Table$toHeaderInfo, state, _p31._0.toMsg),
+				_p34));
+		var thead = A2(_elm_lang$html$Html$thead, theadDetails.attributes, theadDetails.children);
+		var sortedData = A3(_evancz$elm_sortable_table$Table$sort, state, _p34, data);
+		var tbody = A3(
+			_elm_lang$html$Html_Keyed$node,
+			'tbody',
+			_p35.tbodyAttrs,
+			A2(
+				_elm_lang$core$List$map,
+				A3(_evancz$elm_sortable_table$Table$viewRow, _p31._0.toId, _p34, _p35.rowAttrs),
+				sortedData));
+		var withFoot = function () {
+			var _p32 = _p35.tfoot;
+			if (_p32.ctor === 'Nothing') {
+				return {
+					ctor: '::',
+					_0: tbody,
+					_1: {ctor: '[]'}
+				};
+			} else {
+				return {
+					ctor: '::',
+					_0: A2(_elm_lang$html$Html$tfoot, _p32._0.attributes, _p32._0.children),
+					_1: {
+						ctor: '::',
+						_0: tbody,
+						_1: {ctor: '[]'}
+					}
+				};
+			}
+		}();
+		return A2(
+			_elm_lang$html$Html$table,
+			_p35.tableAttrs,
+			function () {
+				var _p33 = _p35.caption;
+				if (_p33.ctor === 'Nothing') {
+					return {ctor: '::', _0: thead, _1: withFoot};
+				} else {
+					return {
+						ctor: '::',
+						_0: A2(_elm_lang$html$Html$caption, _p33._0.attributes, _p33._0.children),
+						_1: {ctor: '::', _0: thead, _1: withFoot}
+					};
+				}
+			}());
+	});
+var _evancz$elm_sortable_table$Table$Column = function (a) {
+	return {ctor: 'Column', _0: a};
+};
+var _evancz$elm_sortable_table$Table$customColumn = function (_p36) {
+	var _p37 = _p36;
+	return _evancz$elm_sortable_table$Table$Column(
+		A3(
+			_evancz$elm_sortable_table$Table$ColumnData,
+			_p37.name,
+			function (_p38) {
+				return _evancz$elm_sortable_table$Table$textDetails(
+					_p37.viewData(_p38));
+			},
+			_p37.sorter));
+};
+var _evancz$elm_sortable_table$Table$veryCustomColumn = _evancz$elm_sortable_table$Table$Column;
+var _evancz$elm_sortable_table$Table$DecOrInc = function (a) {
+	return {ctor: 'DecOrInc', _0: a};
+};
+var _evancz$elm_sortable_table$Table$decreasingOrIncreasingBy = function (toComparable) {
+	return _evancz$elm_sortable_table$Table$DecOrInc(
+		_elm_lang$core$List$sortBy(toComparable));
+};
+var _evancz$elm_sortable_table$Table$IncOrDec = function (a) {
+	return {ctor: 'IncOrDec', _0: a};
+};
+var _evancz$elm_sortable_table$Table$increasingOrDecreasingBy = function (toComparable) {
+	return _evancz$elm_sortable_table$Table$IncOrDec(
+		_elm_lang$core$List$sortBy(toComparable));
+};
+var _evancz$elm_sortable_table$Table$stringColumn = F2(
+	function (name, toStr) {
+		return _evancz$elm_sortable_table$Table$Column(
+			{
+				name: name,
+				viewData: function (_p39) {
+					return _evancz$elm_sortable_table$Table$textDetails(
+						toStr(_p39));
+				},
+				sorter: _evancz$elm_sortable_table$Table$increasingOrDecreasingBy(toStr)
+			});
+	});
+var _evancz$elm_sortable_table$Table$intColumn = F2(
+	function (name, toInt) {
+		return _evancz$elm_sortable_table$Table$Column(
+			{
+				name: name,
+				viewData: function (_p40) {
+					return _evancz$elm_sortable_table$Table$textDetails(
+						_elm_lang$core$Basics$toString(
+							toInt(_p40)));
+				},
+				sorter: _evancz$elm_sortable_table$Table$increasingOrDecreasingBy(toInt)
+			});
+	});
+var _evancz$elm_sortable_table$Table$floatColumn = F2(
+	function (name, toFloat) {
+		return _evancz$elm_sortable_table$Table$Column(
+			{
+				name: name,
+				viewData: function (_p41) {
+					return _evancz$elm_sortable_table$Table$textDetails(
+						_elm_lang$core$Basics$toString(
+							toFloat(_p41)));
+				},
+				sorter: _evancz$elm_sortable_table$Table$increasingOrDecreasingBy(toFloat)
+			});
+	});
+var _evancz$elm_sortable_table$Table$Decreasing = function (a) {
+	return {ctor: 'Decreasing', _0: a};
+};
+var _evancz$elm_sortable_table$Table$decreasingBy = function (toComparable) {
+	return _evancz$elm_sortable_table$Table$Decreasing(
+		_elm_lang$core$List$sortBy(toComparable));
+};
+var _evancz$elm_sortable_table$Table$Increasing = function (a) {
+	return {ctor: 'Increasing', _0: a};
+};
+var _evancz$elm_sortable_table$Table$increasingBy = function (toComparable) {
+	return _evancz$elm_sortable_table$Table$Increasing(
+		_elm_lang$core$List$sortBy(toComparable));
+};
+var _evancz$elm_sortable_table$Table$None = {ctor: 'None'};
+var _evancz$elm_sortable_table$Table$unsortable = _evancz$elm_sortable_table$Table$None;
 var _user$project$Models$processDuration = function (t) {
 	var _p0 = t;
 	if (_p0.ctor === 'Nothing') {
@@ -9380,9 +9863,10 @@ var _user$project$Models$Dnd = F3(
 	function (a, b, c) {
 		return {track: a, playlistId: b, pos: c};
 	});
-var _user$project$Models$SearchForm = function (a) {
-	return {query: a};
-};
+var _user$project$Models$SearchForm = F2(
+	function (a, b) {
+		return {artist: a, track: b};
+	});
 var _user$project$Models$NewPlaylistForm = function (a) {
 	return {name: a};
 };
@@ -9619,6 +10103,22 @@ var _user$project$GraphQL$query = F6(
 	function (method, url, query, operation, variables, decoder) {
 		return A6(_user$project$GraphQL$fetch, method, url, query, operation, variables, decoder);
 	});
+var _user$project$Utils$timeToString = function (ms) {
+	var s = (ms / 1000) | 0;
+	var minutes = (s / 60) | 0;
+	var seconds = A2(_elm_lang$core$Basics$rem, s, 60);
+	var zeroPadding = (_elm_lang$core$Native_Utils.cmp(seconds, 10) < 0) ? '0' : '';
+	return A2(
+		_elm_lang$core$Basics_ops['++'],
+		_elm_lang$core$Basics$toString(minutes),
+		A2(
+			_elm_lang$core$Basics_ops['++'],
+			':',
+			A2(
+				_elm_lang$core$Basics_ops['++'],
+				zeroPadding,
+				_elm_lang$core$Basics$toString(seconds))));
+};
 var _user$project$Utils_ops = _user$project$Utils_ops || {};
 _user$project$Utils_ops[':='] = F2(
 	function (name, decoder) {
@@ -9662,12 +10162,12 @@ var _user$project$GraphQL_Discover$endpointUrl = 'http://localhost:5000/discover
 var _user$project$GraphQL_Discover$Search = function (a) {
 	return {searchTracks: a};
 };
-var _user$project$GraphQL_Discover$searchDecoder = A2(
+var _user$project$GraphQL_Discover$searchTrackByNameDecoder = A2(
 	_elm_lang$core$Json_Decode$map,
 	_user$project$GraphQL_Discover$Search,
 	A2(
 		_user$project$Utils_ops[':='],
-		'searchTracks',
+		'searchTracksByNameLastfm',
 		_elm_lang$core$Json_Decode$list(
 			A2(
 				_user$project$GraphQL$apply,
@@ -9689,19 +10189,76 @@ var _user$project$GraphQL_Discover$searchDecoder = A2(
 						A2(_user$project$Utils_ops[':='], 'duration', _elm_lang$core$Json_Decode$string))),
 				_elm_lang$core$Json_Decode$maybe(
 					A2(_user$project$Utils_ops[':='], 'youtubeId', _elm_lang$core$Json_Decode$string))))));
-var _user$project$GraphQL_Discover$search = function (params) {
-	var graphQLQuery = 'query search($query: String!) { searchTracks(query: $query) { name artists duration youtubeId } }';
+var _user$project$GraphQL_Discover$searchTrackByName = function (params) {
+	var graphQLQuery = 'query searchTracksByName($artist: String!, $track: String!) {\n                searchTracksByNameLastfm(artistName: $artist, trackName: $track) {\n                  name\n                  artists\n                  duration\n                  youtubeId\n                }\n              }';
 	var graphQLParams = _elm_lang$core$Json_Encode$object(
 		{
 			ctor: '::',
 			_0: {
 				ctor: '_Tuple2',
-				_0: 'query',
-				_1: _elm_lang$core$Json_Encode$string(params.query)
+				_0: 'artist',
+				_1: _elm_lang$core$Json_Encode$string(params.artist)
+			},
+			_1: {
+				ctor: '::',
+				_0: {
+					ctor: '_Tuple2',
+					_0: 'track',
+					_1: _elm_lang$core$Json_Encode$string(params.track)
+				},
+				_1: {ctor: '[]'}
+			}
+		});
+	return A6(_user$project$GraphQL$query, 'GET', _user$project$GraphQL_Discover$endpointUrl, graphQLQuery, 'searchTracksByName', graphQLParams, _user$project$GraphQL_Discover$searchTrackByNameDecoder);
+};
+var _user$project$GraphQL_Discover$searchTrackByArtistDecoder = A2(
+	_elm_lang$core$Json_Decode$map,
+	_user$project$GraphQL_Discover$Search,
+	A2(
+		_user$project$Utils_ops[':='],
+		'searchTracksByArtistNameLastfm',
+		_elm_lang$core$Json_Decode$list(
+			A2(
+				_user$project$GraphQL$apply,
+				A2(
+					_user$project$GraphQL$apply,
+					A2(
+						_user$project$GraphQL$apply,
+						A2(
+							_elm_lang$core$Json_Decode$map,
+							F4(
+								function (name, artists, duration, youtubeId) {
+									return {name: name, artists: artists, duration: duration, youtubeId: youtubeId};
+								}),
+							_elm_lang$core$Json_Decode$maybe(
+								A2(_user$project$Utils_ops[':='], 'name', _elm_lang$core$Json_Decode$string))),
+						_elm_lang$core$Json_Decode$maybe(
+							A2(_user$project$Utils_ops[':='], 'artists', _elm_lang$core$Json_Decode$string))),
+					_elm_lang$core$Json_Decode$maybe(
+						A2(_user$project$Utils_ops[':='], 'duration', _elm_lang$core$Json_Decode$string))),
+				_elm_lang$core$Json_Decode$maybe(
+					A2(_user$project$Utils_ops[':='], 'youtubeId', _elm_lang$core$Json_Decode$string))))));
+var _user$project$GraphQL_Discover$searchTrackByArtist = function (artist) {
+	var graphQLQuery = 'query searchTracksByArtist($artist: String!) {\n                searchTracksByArtistNameLastfm(artistName: $artist) {\n                  name\n                  artists\n                  duration\n                  youtubeId\n                }\n              }';
+	var graphQLParams = _elm_lang$core$Json_Encode$object(
+		{
+			ctor: '::',
+			_0: {
+				ctor: '_Tuple2',
+				_0: 'artist',
+				_1: _elm_lang$core$Json_Encode$string(artist)
 			},
 			_1: {ctor: '[]'}
 		});
-	return A6(_user$project$GraphQL$query, 'GET', _user$project$GraphQL_Discover$endpointUrl, graphQLQuery, 'search', graphQLParams, _user$project$GraphQL_Discover$searchDecoder);
+	return A6(_user$project$GraphQL$query, 'GET', _user$project$GraphQL_Discover$endpointUrl, graphQLQuery, 'searchTracksByArtist', graphQLParams, _user$project$GraphQL_Discover$searchTrackByArtistDecoder);
+};
+var _user$project$GraphQL_Discover$search = function (params) {
+	var _p0 = params.track;
+	if (_p0 === '') {
+		return _user$project$GraphQL_Discover$searchTrackByArtist(params.artist);
+	} else {
+		return _user$project$GraphQL_Discover$searchTrackByName(params);
+	}
 };
 var _user$project$GraphQL_Playlists$endpointUrl = 'http://localhost:5000/playlists/graphql';
 var _user$project$GraphQL_Playlists$Playlists = function (a) {
@@ -10199,6 +10756,9 @@ var _user$project$Actions$HideForm = {ctor: 'HideForm'};
 var _user$project$Actions$FocusFail = function (a) {
 	return {ctor: 'FocusFail', _0: a};
 };
+var _user$project$Actions$SetTableState = function (a) {
+	return {ctor: 'SetTableState', _0: a};
+};
 var _user$project$Actions$RemoveTrackResponse = function (a) {
 	return {ctor: 'RemoveTrackResponse', _0: a};
 };
@@ -10254,13 +10814,16 @@ var _user$project$Actions$SearchResponse = function (a) {
 	return {ctor: 'SearchResponse', _0: a};
 };
 var _user$project$Actions$Search = {ctor: 'Search'};
-var _user$project$Actions$SearchFormInputQuery = function (a) {
-	return {ctor: 'SearchFormInputQuery', _0: a};
+var _user$project$Actions$SearchFormInputTrack = function (a) {
+	return {ctor: 'SearchFormInputTrack', _0: a};
+};
+var _user$project$Actions$SearchFormInputArtist = function (a) {
+	return {ctor: 'SearchFormInputArtist', _0: a};
 };
 var _user$project$State$init = {
 	ctor: '_Tuple2',
 	_0: {
-		searchForm: _user$project$Models$SearchForm(''),
+		searchForm: A2(_user$project$Models$SearchForm, '', ''),
 		searchResult: _user$project$Utils$NotAsked,
 		playlists: _user$project$Utils$Loading,
 		displayMain: _user$project$Models$DisplayNone,
@@ -10268,14 +10831,32 @@ var _user$project$State$init = {
 		newPlaylistForm: _user$project$Models$NewPlaylistForm(''),
 		renamePlaylistForm: A2(_user$project$Models$RenamePlaylistForm, '', ''),
 		deletePlaylistForm: _user$project$Models$DeletePlaylistForm(''),
-		dnd: A3(_user$project$Models$Dnd, _elm_lang$core$Maybe$Nothing, _elm_lang$core$Maybe$Nothing, _elm_lang$core$Maybe$Nothing)
+		dnd: A3(_user$project$Models$Dnd, _elm_lang$core$Maybe$Nothing, _elm_lang$core$Maybe$Nothing, _elm_lang$core$Maybe$Nothing),
+		tableState: _evancz$elm_sortable_table$Table$initialSort('Artists')
 	},
 	_1: A2(_elm_lang$core$Task$attempt, _user$project$Actions$PlaylistResponse, _user$project$GraphQL_Playlists$playlists)
 };
-var _user$project$State$Model = F9(
-	function (a, b, c, d, e, f, g, h, i) {
-		return {searchForm: a, searchResult: b, playlists: c, displayMain: d, displayForm: e, newPlaylistForm: f, renamePlaylistForm: g, deletePlaylistForm: h, dnd: i};
-	});
+var _user$project$State$Model = function (a) {
+	return function (b) {
+		return function (c) {
+			return function (d) {
+				return function (e) {
+					return function (f) {
+						return function (g) {
+							return function (h) {
+								return function (i) {
+									return function (j) {
+										return {searchForm: a, searchResult: b, playlists: c, displayMain: d, displayForm: e, newPlaylistForm: f, renamePlaylistForm: g, deletePlaylistForm: h, dnd: i, tableState: j};
+									};
+								};
+							};
+						};
+					};
+				};
+			};
+		};
+	};
+};
 var _user$project$Views_Menu$dropablePlaylist = F2(
 	function (playlistId, view) {
 		return A2(
@@ -10752,50 +11333,106 @@ var _user$project$Views_SearchForm$view = function (_p1) {
 		{
 			ctor: '::',
 			_0: A2(
-				_elm_lang$html$Html$p,
+				_elm_lang$html$Html$div,
 				{
 					ctor: '::',
-					_0: _elm_lang$html$Html_Attributes$class('nav-item control has-addons'),
+					_0: _elm_lang$html$Html_Attributes$class('nav-item field is-grouped'),
 					_1: {ctor: '[]'}
 				},
 				{
 					ctor: '::',
 					_0: A2(
-						_elm_lang$html$Html$input,
+						_elm_lang$html$Html$p,
 						{
 							ctor: '::',
-							_0: _elm_lang$html$Html_Attributes$class('input'),
-							_1: {
-								ctor: '::',
-								_0: _elm_lang$html$Html_Attributes$placeholder('Find music'),
-								_1: {
+							_0: _elm_lang$html$Html_Attributes$class('control is-expanded'),
+							_1: {ctor: '[]'}
+						},
+						{
+							ctor: '::',
+							_0: A2(
+								_elm_lang$html$Html$input,
+								{
 									ctor: '::',
-									_0: _elm_lang$html$Html_Attributes$type_('text'),
+									_0: _elm_lang$html$Html_Attributes$class('input'),
 									_1: {
 										ctor: '::',
-										_0: _elm_lang$html$Html_Events$onInput(_user$project$Actions$SearchFormInputQuery),
-										_1: {ctor: '[]'}
+										_0: _elm_lang$html$Html_Attributes$placeholder('Artist'),
+										_1: {
+											ctor: '::',
+											_0: _elm_lang$html$Html_Attributes$type_('text'),
+											_1: {
+												ctor: '::',
+												_0: _elm_lang$html$Html_Events$onInput(_user$project$Actions$SearchFormInputArtist),
+												_1: {ctor: '[]'}
+											}
+										}
 									}
-								}
-							}
-						},
-						{ctor: '[]'}),
+								},
+								{ctor: '[]'}),
+							_1: {ctor: '[]'}
+						}),
 					_1: {
 						ctor: '::',
 						_0: A2(
-							_elm_lang$html$Html$button,
+							_elm_lang$html$Html$p,
 							{
 								ctor: '::',
-								_0: _elm_lang$html$Html_Attributes$class(
-									A2(_elm_lang$core$Basics_ops['++'], 'button is-info ', isLoading)),
+								_0: _elm_lang$html$Html_Attributes$class('control is-expanded'),
 								_1: {ctor: '[]'}
 							},
 							{
 								ctor: '::',
-								_0: _elm_lang$html$Html$text('Search'),
+								_0: A2(
+									_elm_lang$html$Html$input,
+									{
+										ctor: '::',
+										_0: _elm_lang$html$Html_Attributes$class('input'),
+										_1: {
+											ctor: '::',
+											_0: _elm_lang$html$Html_Attributes$placeholder('Track'),
+											_1: {
+												ctor: '::',
+												_0: _elm_lang$html$Html_Attributes$type_('text'),
+												_1: {
+													ctor: '::',
+													_0: _elm_lang$html$Html_Events$onInput(_user$project$Actions$SearchFormInputTrack),
+													_1: {ctor: '[]'}
+												}
+											}
+										}
+									},
+									{ctor: '[]'}),
 								_1: {ctor: '[]'}
 							}),
-						_1: {ctor: '[]'}
+						_1: {
+							ctor: '::',
+							_0: A2(
+								_elm_lang$html$Html$p,
+								{
+									ctor: '::',
+									_0: _elm_lang$html$Html_Attributes$class('control'),
+									_1: {ctor: '[]'}
+								},
+								{
+									ctor: '::',
+									_0: A2(
+										_elm_lang$html$Html$button,
+										{
+											ctor: '::',
+											_0: _elm_lang$html$Html_Attributes$class(
+												A2(_elm_lang$core$Basics_ops['++'], 'button is-info ', isLoading)),
+											_1: {ctor: '[]'}
+										},
+										{
+											ctor: '::',
+											_0: _elm_lang$html$Html$text('Search'),
+											_1: {ctor: '[]'}
+										}),
+									_1: {ctor: '[]'}
+								}),
+							_1: {ctor: '[]'}
+						}
 					}
 				}),
 			_1: {ctor: '[]'}
@@ -10815,12 +11452,23 @@ var _user$project$Views_Nav$view = function (state) {
 				_elm_lang$html$Html$div,
 				{
 					ctor: '::',
-					_0: _elm_lang$html$Html_Attributes$class('nav-left'),
+					_0: _elm_lang$html$Html_Attributes$class('container'),
 					_1: {ctor: '[]'}
 				},
 				{
 					ctor: '::',
-					_0: _user$project$Views_SearchForm$view(state),
+					_0: A2(
+						_elm_lang$html$Html$div,
+						{
+							ctor: '::',
+							_0: _elm_lang$html$Html_Attributes$class('nav-left'),
+							_1: {ctor: '[]'}
+						},
+						{
+							ctor: '::',
+							_0: _user$project$Views_SearchForm$view(state),
+							_1: {ctor: '[]'}
+						}),
 					_1: {ctor: '[]'}
 				}),
 			_1: {ctor: '[]'}
@@ -10934,24 +11582,11 @@ var _user$project$Views_TrackList$viewYoutubeLink = function (ytId) {
 	}
 };
 var _user$project$Views_TrackList$viewTrackDuration = function (time) {
-	var ms = A2(
-		_elm_lang$core$Result$withDefault,
-		0,
-		_elm_lang$core$String$toInt(time));
-	var s = (ms / 1000) | 0;
-	var minutes = (s / 60) | 0;
-	var seconds = A2(_elm_lang$core$Basics$rem, s, 60);
-	var zeroPadding = (_elm_lang$core$Native_Utils.cmp(seconds, 10) < 0) ? '0' : '';
-	return A2(
-		_elm_lang$core$Basics_ops['++'],
-		_elm_lang$core$Basics$toString(minutes),
+	return _user$project$Utils$timeToString(
 		A2(
-			_elm_lang$core$Basics_ops['++'],
-			':',
-			A2(
-				_elm_lang$core$Basics_ops['++'],
-				zeroPadding,
-				_elm_lang$core$Basics$toString(seconds))));
+			_elm_lang$core$Result$withDefault,
+			0,
+			_elm_lang$core$String$toInt(time)));
 };
 var _user$project$Views_TrackList$grabHandle = A2(
 	_elm_lang$html$Html$span,
@@ -11161,6 +11796,198 @@ var _user$project$Views_TrackList$view = function (trackList) {
 			}
 		});
 };
+var _user$project$Views_MusicTable$viewRemoveIcon = function (trackId) {
+	var html = function () {
+		var _p0 = trackId;
+		if (_p0.ctor === 'Nothing') {
+			return A2(
+				_elm_lang$html$Html$span,
+				{ctor: '[]'},
+				{ctor: '[]'});
+		} else {
+			return A2(
+				_elm_lang$html$Html$a,
+				{
+					ctor: '::',
+					_0: _elm_lang$html$Html_Attributes$class('delete'),
+					_1: {
+						ctor: '::',
+						_0: _elm_lang$html$Html_Events$onClick(
+							_user$project$Actions$RemoveTrack(_p0._0)),
+						_1: {ctor: '[]'}
+					}
+				},
+				{ctor: '[]'});
+		}
+	}();
+	return A2(
+		_evancz$elm_sortable_table$Table$HtmlDetails,
+		{
+			ctor: '::',
+			_0: _elm_lang$html$Html_Attributes$class('is-icon'),
+			_1: {ctor: '[]'}
+		},
+		{
+			ctor: '::',
+			_0: html,
+			_1: {ctor: '[]'}
+		});
+};
+var _user$project$Views_MusicTable$removeColumn = _evancz$elm_sortable_table$Table$veryCustomColumn(
+	{
+		name: 'Remove',
+		viewData: function (_p1) {
+			return _user$project$Views_MusicTable$viewRemoveIcon(
+				function (_) {
+					return _.id;
+				}(_p1));
+		},
+		sorter: _evancz$elm_sortable_table$Table$unsortable
+	});
+var _user$project$Views_MusicTable$viewYoutubeLink = function (ytId) {
+	var html = function () {
+		var _p2 = ytId;
+		if (_p2.ctor === 'Nothing') {
+			return A2(
+				_elm_lang$html$Html$span,
+				{
+					ctor: '::',
+					_0: _elm_lang$html$Html_Attributes$class('icon'),
+					_1: {ctor: '[]'}
+				},
+				{
+					ctor: '::',
+					_0: A2(
+						_elm_lang$html$Html$i,
+						{
+							ctor: '::',
+							_0: _elm_lang$html$Html_Attributes$class('fa fa-minus-circle'),
+							_1: {ctor: '[]'}
+						},
+						{ctor: '[]'}),
+					_1: {ctor: '[]'}
+				});
+		} else {
+			return A2(
+				_elm_lang$html$Html$a,
+				{
+					ctor: '::',
+					_0: _elm_lang$html$Html_Attributes$href(
+						A2(_elm_lang$core$Basics_ops['++'], 'https://www.youtube.com/watch?v=', _p2._0)),
+					_1: {
+						ctor: '::',
+						_0: _elm_lang$html$Html_Attributes$target('_blank'),
+						_1: {ctor: '[]'}
+					}
+				},
+				{
+					ctor: '::',
+					_0: A2(
+						_elm_lang$html$Html$i,
+						{
+							ctor: '::',
+							_0: _elm_lang$html$Html_Attributes$class('fa fa-play-circle'),
+							_1: {ctor: '[]'}
+						},
+						{ctor: '[]'}),
+					_1: {ctor: '[]'}
+				});
+		}
+	}();
+	return A2(
+		_evancz$elm_sortable_table$Table$HtmlDetails,
+		{
+			ctor: '::',
+			_0: _elm_lang$html$Html_Attributes$class('is-icon'),
+			_1: {ctor: '[]'}
+		},
+		{
+			ctor: '::',
+			_0: html,
+			_1: {ctor: '[]'}
+		});
+};
+var _user$project$Views_MusicTable$youtubeColumn = _evancz$elm_sortable_table$Table$veryCustomColumn(
+	{
+		name: 'Youtube',
+		viewData: function (_p3) {
+			return _user$project$Views_MusicTable$viewYoutubeLink(
+				function (_) {
+					return _.youtubeId;
+				}(_p3));
+		},
+		sorter: _evancz$elm_sortable_table$Table$unsortable
+	});
+var _user$project$Views_MusicTable$durationColumn = _evancz$elm_sortable_table$Table$customColumn(
+	{
+		name: 'Duration',
+		viewData: function (_p4) {
+			return _user$project$Utils$timeToString(
+				A2(
+					_elm_lang$core$Result$withDefault,
+					0,
+					_elm_lang$core$String$toInt(
+						function (_) {
+							return _.duration;
+						}(_p4))));
+		},
+		sorter: _evancz$elm_sortable_table$Table$increasingOrDecreasingBy(
+			function (_) {
+				return _.duration;
+			})
+	});
+var _user$project$Views_MusicTable$config = _evancz$elm_sortable_table$Table$customConfig(
+	{
+		toId: function (_p5) {
+			return A2(
+				_elm_lang$core$Maybe$withDefault,
+				'no-id',
+				function (_) {
+					return _.id;
+				}(_p5));
+		},
+		toMsg: _user$project$Actions$SetTableState,
+		columns: {
+			ctor: '::',
+			_0: A2(
+				_evancz$elm_sortable_table$Table$stringColumn,
+				'Name',
+				function (_) {
+					return _.name;
+				}),
+			_1: {
+				ctor: '::',
+				_0: A2(
+					_evancz$elm_sortable_table$Table$stringColumn,
+					'Artists',
+					function (_) {
+						return _.artists;
+					}),
+				_1: {
+					ctor: '::',
+					_0: _user$project$Views_MusicTable$durationColumn,
+					_1: {
+						ctor: '::',
+						_0: _user$project$Views_MusicTable$youtubeColumn,
+						_1: {
+							ctor: '::',
+							_0: _user$project$Views_MusicTable$removeColumn,
+							_1: {ctor: '[]'}
+						}
+					}
+				}
+			}
+		},
+		customizations: _elm_lang$core$Native_Utils.update(
+			_evancz$elm_sortable_table$Table$defaultCustomizations,
+			{
+				tableAttrs: {
+					ctor: '::',
+					_0: _elm_lang$html$Html_Attributes$class('table'),
+					_1: {ctor: '[]'}
+				}
+			})
+	});
 var _user$project$Views_Main$displaySearchResult = function (searchResult) {
 	var _p0 = searchResult;
 	switch (_p0.ctor) {
@@ -11195,8 +12022,8 @@ var _user$project$Views_Main$displaySearchResult = function (searchResult) {
 			return _user$project$Views_TrackList$view(_p0._0);
 	}
 };
-var _user$project$Views_Main$displayPlayist = F2(
-	function (playlistId, playlists) {
+var _user$project$Views_Main$displayPlayist = F3(
+	function (playlistId, playlists, tableState) {
 		var _p1 = playlists;
 		switch (_p1.ctor) {
 			case 'NotAsked':
@@ -11227,36 +12054,31 @@ var _user$project$Views_Main$displayPlayist = F2(
 						_1: {ctor: '[]'}
 					});
 			default:
-				var playlist = _elm_lang$core$List$head(
+				var playlistView = A2(
+					_elm_lang$core$List$map,
+					function (p) {
+						return A3(_evancz$elm_sortable_table$Table$view, _user$project$Views_MusicTable$config, tableState, p.tracks);
+					},
 					A2(
 						_elm_lang$core$List$filter,
 						function (p) {
 							return _elm_lang$core$Native_Utils.eq(p.id, playlistId);
 						},
 						_p1._0));
-				var _p2 = playlist;
-				if (_p2.ctor === 'Nothing') {
-					return A2(
-						_elm_lang$html$Html$p,
-						{ctor: '[]'},
-						{
-							ctor: '::',
-							_0: _elm_lang$html$Html$text('The playlist isn\'t here anymore!'),
-							_1: {ctor: '[]'}
-						});
-				} else {
-					return _user$project$Views_TrackList$view(_p2._0.tracks);
-				}
+				return A2(
+					_elm_lang$html$Html$div,
+					{ctor: '[]'},
+					playlistView);
 		}
 	});
-var _user$project$Views_Main$view = function (_p3) {
-	var _p4 = _p3;
-	var _p5 = _p4.displayMain;
-	switch (_p5.ctor) {
+var _user$project$Views_Main$view = function (_p2) {
+	var _p3 = _p2;
+	var _p4 = _p3.displayMain;
+	switch (_p4.ctor) {
 		case 'DisplayPlaylist':
-			return A2(_user$project$Views_Main$displayPlayist, _p5._0, _p4.playlists);
+			return A3(_user$project$Views_Main$displayPlayist, _p4._0, _p3.playlists, _p3.tableState);
 		case 'DisplaySearchResult':
-			return _user$project$Views_Main$displaySearchResult(_p4.searchResult);
+			return _user$project$Views_Main$displaySearchResult(_p3.searchResult);
 		default:
 			return A2(
 				_elm_lang$html$Html$p,
@@ -11291,7 +12113,7 @@ var _user$project$Views_Layout$view = function (state) {
 						_elm_lang$html$Html$div,
 						{
 							ctor: '::',
-							_0: _elm_lang$html$Html_Attributes$class('container is-fluid is-marginless'),
+							_0: _elm_lang$html$Html_Attributes$class('container is-marginless is-fixed is-1-6-width'),
 							_1: {ctor: '[]'}
 						},
 						{
@@ -11589,20 +12411,24 @@ var _user$project$Views_Index$view = function (state) {
 		{ctor: '[]'},
 		{
 			ctor: '::',
-			_0: _user$project$Utils$stylesheet('assets/css/bulma.css'),
+			_0: _user$project$Utils$stylesheet('assets/css/font-awesome.css'),
 			_1: {
 				ctor: '::',
-				_0: _user$project$Utils$stylesheet('assets/css/font-awesome.css'),
+				_0: _user$project$Utils$stylesheet('assets/css/bulma.css'),
 				_1: {
 					ctor: '::',
-					_0: _user$project$Views_Layout$view(state),
+					_0: _user$project$Utils$stylesheet('assets/css/main.css'),
 					_1: {
 						ctor: '::',
-						_0: _user$project$Views_Modals$view(state),
+						_0: _user$project$Views_Layout$view(state),
 						_1: {
 							ctor: '::',
-							_0: _user$project$Views_Dnd$view(state),
-							_1: {ctor: '[]'}
+							_0: _user$project$Views_Modals$view(state),
+							_1: {
+								ctor: '::',
+								_0: _user$project$Views_Dnd$view(state),
+								_1: {ctor: '[]'}
+							}
 						}
 					}
 				}
@@ -11619,14 +12445,22 @@ var _user$project$Updates_Search$update = F2(
 	function (msg, model) {
 		var _p0 = msg;
 		switch (_p0.ctor) {
-			case 'SearchFormInputQuery':
+			case 'SearchFormInputArtist':
+				var updatedSearchForm = A2(_user$project$Models$SearchForm, _p0._0, model.searchForm.track);
 				return {
 					ctor: '_Tuple2',
 					_0: _elm_lang$core$Native_Utils.update(
 						model,
-						{
-							searchForm: _user$project$Models$SearchForm(_p0._0)
-						}),
+						{searchForm: updatedSearchForm}),
+					_1: _elm_lang$core$Platform_Cmd$none
+				};
+			case 'SearchFormInputTrack':
+				var updatedSearchForm = A2(_user$project$Models$SearchForm, model.searchForm.artist, _p0._0);
+				return {
+					ctor: '_Tuple2',
+					_0: _elm_lang$core$Native_Utils.update(
+						model,
+						{searchForm: updatedSearchForm}),
 					_1: _elm_lang$core$Platform_Cmd$none
 				};
 			case 'Search':
@@ -12050,6 +12884,21 @@ var _user$project$Updates_RemoveTrackFromPlaylist$update = F2(
 				return {ctor: '_Tuple2', _0: model, _1: _elm_lang$core$Platform_Cmd$none};
 		}
 	});
+var _user$project$Updates_SortMusicTable$update = F2(
+	function (msg, model) {
+		var _p0 = msg;
+		if (_p0.ctor === 'SetTableState') {
+			return {
+				ctor: '_Tuple2',
+				_0: _elm_lang$core$Native_Utils.update(
+					model,
+					{tableState: _p0._0}),
+				_1: _elm_lang$core$Platform_Cmd$none
+			};
+		} else {
+			return {ctor: '_Tuple2', _0: model, _1: _elm_lang$core$Platform_Cmd$none};
+		}
+	});
 var _user$project$Updates_Commons$update = F2(
 	function (msg, model) {
 		var _p0 = msg;
@@ -12108,8 +12957,12 @@ var _user$project$Reducer$update = F2(
 									_0: _user$project$Updates_RemoveTrackFromPlaylist$update,
 									_1: {
 										ctor: '::',
-										_0: _user$project$Updates_Commons$update,
-										_1: {ctor: '[]'}
+										_0: _user$project$Updates_SortMusicTable$update,
+										_1: {
+											ctor: '::',
+											_0: _user$project$Updates_Commons$update,
+											_1: {ctor: '[]'}
+										}
 									}
 								}
 							}

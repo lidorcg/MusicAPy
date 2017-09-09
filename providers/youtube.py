@@ -6,7 +6,7 @@ and returns the id of it's video.
 
 from apiclient.discovery import build
 import dateutil.parser
-from datetime import datetime, date
+from datetime import datetime, date, timedelta
 from functools import reduce
 
 # Read in the file containing the authorization token.
@@ -15,7 +15,6 @@ dk = f.read()
 # Get rid of leading and trailing whitespace.
 dk = dk.strip()
 f.close()
-
 
 DEVELOPER_KEY = dk
 YOUTUBE_API_SERVICE_NAME = "youtube"
@@ -36,9 +35,9 @@ def get_track_id(artists, track, duration):
 
     videos_response = youtube_videos_details(videos_ids)
 
-    best_match = find_best_match(videos_response, duration)
+    best_match = find_best_match(videos_response.get("items", []), duration)
 
-    return best_match['id']
+    return best_match
 
 
 #######################
@@ -47,7 +46,7 @@ def get_track_id(artists, track, duration):
 
 
 def query_builder(artists, track):
-    return '{} {} Lyrics'.format(artists, track)
+    return '{} {} lyrics'.format(artists, track)
 
 
 def youtube_search(query):
@@ -56,31 +55,34 @@ def youtube_search(query):
         part='id',
         type="video",
         videoCategoryId="10",
-        maxResults="10"
-        ).execute()
+        maxResults="5"
+    ).execute()
 
 
 def youtube_videos_details(videos_ids):
     return youtube.videos().list(
         id=",".join(videos_ids),
         part='contentDetails'
-        ).execute()
+    ).execute()
 
 
-def find_best_match(videos_response, duration):
+def find_best_match(items, duration):
     # TODO: find better match for hebrew
-    if duration == 0:
-        return videos_response['items'][1]
+    best_match = items[0]['id']
     # convert duration from millisecond string to time object
     time_duration = datetime.utcfromtimestamp(int(duration) / 1000).time()
     # convert duration from PTMXXSXX string to time object
-    videos_with_time_obj = map(parse_yt_time, videos_response.get("items", []))
+    videos_with_time_obj = map(parse_yt_time, items)
     # map each id to time delta
-    videos_with_time_delta = map((lambda x: map_time_delta(x, time_duration)),
-                                 videos_with_time_obj)
-    # find item with minimum delta
-    best_match = reduce(min_delta, videos_with_time_delta)
+    videos_with_time_delta = map((lambda x: map_time_delta(x, time_duration)), videos_with_time_obj)
+    # filter big deltas
+    filtered_videos = list(filter(lambda x: x['delta'] <= timedelta(seconds=7), videos_with_time_delta))
 
+    if filtered_videos:
+        best_match = filtered_videos[0]['id']
+
+    # find item with minimum delta
+    # best_match = reduce(min_delta, videos_with_time_delta)
     return best_match
 
 
@@ -97,7 +99,7 @@ def map_time_delta(item, duration):
 
 
 def min_delta(itm1, itm2):
-    if(itm1['delta'] > itm2['delta']):
+    if itm1['delta'] > itm2['delta']:
         return itm2
     else:
         return itm1

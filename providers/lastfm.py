@@ -5,6 +5,7 @@ and retrieve their metadata.
 """
 
 import pylast
+import time
 
 from interfaces import discover
 
@@ -24,13 +25,26 @@ def search_tracks_by_name(track_name, artist_name=""):
 
 
 def search_tracks_by_artist_name(artist_name):
+    t1 = time.time()
     artist = network.get_artist(artist_name=artist_name)
-    return list(map(process_top_tracks, artist.get_top_tracks()))
+    tracks = artist.get_top_tracks(limit=10)
+    t2 = time.time()
+    print("lasfm api time: " + str(t2-t1))
+    print(tracks)
+    t1 = time.time()
+    lst = list(map(process_top_tracks, tracks))
+    t2 = time.time()
+    print("gql process time: " + str(t2 - t1))
+    return lst
 
 
 def process_track(trk):
+    t1 = time.time()
+    duration = trk.get_duration()
+    t2 = time.time()
+    print("lasfm duration time: " + str(t2 - t1))
     return discover.Track(name=trk.title,
-                          duration=trk.get_duration(),
+                          duration=duration,
                           artists=trk.artist.name)
 
 

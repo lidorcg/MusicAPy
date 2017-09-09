@@ -59,7 +59,7 @@ class Query(graphene.ObjectType):
     def resolve_search_artists_spotify(self, args, context, info):
         return spotify.search_artists(args['query'])
 
-    def search_tracks_by_track_name_lastfm(self, args, context, info):
+    def resolve_search_tracks_by_name_lastfm(self, args, context, info):
         return lastfm.search_tracks_by_name(args['track_name'],
                                             args['artist_name'])
 
